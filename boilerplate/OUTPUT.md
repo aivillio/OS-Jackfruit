@@ -1,26 +1,16 @@
 
-# Screenshot Evidence Template
 
-Use this file to record each required screenshot item.
-For every section:
-- Run the command(s)
-- Paste the real output under Output
-- Add your screenshot image link later
+## 0. One-time prep
 
-## 0. One-time prep 
+Run these once after a fresh clone or whenever you rebuild the binaries/rootfs from scratch.
 
-###  Command
+### One-time setup command
 ```bash
-cd /home/angelo/osprt2/OS-Jackfruit/boilerplate
+cd /boilerplate
 
 # Build user-space and kernel module
 make
 make module
-
-# Load monitor module
-sudo rmmod monitor 2>/dev/null || true
-sudo insmod monitor.ko
-ls -l /dev/container_monitor
 
 # Build static workload binaries for Alpine/musl rootfs
 sudo apt-get update
@@ -38,19 +28,46 @@ chmod +x rootfs-alpha/memory_hog rootfs-alpha/cpu_hog rootfs-alpha/io_pulse
 chmod +x rootfs-beta/memory_hog rootfs-beta/cpu_hog rootfs-beta/io_pulse
 ```
 
+### Before running the supervisor
+
+If the kernel module is not already loaded for the current boot, load it once and verify the device node:
+
+```bash
+cd /boilerplate
+sudo rmmod monitor 2>/dev/null || true
+sudo insmod monitor.ko
+ls -l /dev/container_monitor
+```
+
+Before every supervisor run,  need the module loaded and the container rootfs copies present.
+
+If `rootfs-alpha/` and `rootfs-beta/` already exist,  do **not** need to rebuild anything or recopy them.
+If the module is already loaded, you can skip `rmmod`/`insmod`.
+
+Minimal pre-supervisor setup:
+
+```bash
+cd /boilerplate
+ls -l /dev/container_monitor || sudo insmod monitor.ko
+cp -a rootfs-base rootfs-alpha
+cp -a rootfs-base rootfs-beta
+```
+
+If you changed the binaries or want fresh writable filesystems, rerun the full one-time setup block above.
+
 ## 1. Multi-container supervision
 
 ###  Command
 Terminal 1:
 ```bash
-cd /home/angelo/osprt2/OS-Jackfruit/boilerplate
-sudo ./engine supervisor /home/angelo/osprt2/OS-Jackfruit/boilerplate/rootfs-base
+cd /boilerplate
+sudo ./engine supervisor /boilerplate/rootfs-base
 ```
 
 
 Terminal 2:
 ```bash
-cd /home/angelo/osprt2/OS-Jackfruit/boilerplate
+cd /boilerplate
 cp -a rootfs-base rootfs-alpha
 cp -a rootfs-base rootfs-beta
 sudo ./engine start alpha ./rootfs-alpha "sleep 60"
@@ -62,7 +79,7 @@ sudo ./engine ps
 
 ### Screenshot
 terminal 2
-![alt text](image-1.png)
+![alt text](image-14.png)
 
 terminal 1
 ![alt text](image-2.png)
@@ -73,16 +90,16 @@ terminal 1
 
 ###  Command
 ```bash
-cd /home/angelo/osprt2/OS-Jackfruit/boilerplate
+cd /boilerplate
 sudo ./engine ps
 ```
 
-The `ps` output now prints one container per line in a table, so it is easier to capture in screenshots.
+
 
 
 
 ### Screenshot
-![alt text](image-3.png)
+![alt text](image-15.png)
 
 ---
 
@@ -90,7 +107,7 @@ The `ps` output now prints one container per line in a table, so it is easier to
 
 ###  Command
 ```bash
-cd /home/angelo/osprt2/OS-Jackfruit/boilerplate
+cd /boilerplate
 sudo ./engine run logdemo2 ./rootfs-alpha 'for i in 1 2 3 4 5; do echo log-$i; sleep 1; done'
 sudo ./engine logs logdemo2
 ```
@@ -106,7 +123,7 @@ Add screenshot here.
 
 ###  Command
 ```bash
-cd /home/angelo/osprt2/OS-Jackfruit/boilerplate
+cd /boilerplate
 sudo ./engine start ipcstop ./rootfs-alpha "sleep 120"
 sudo ./engine stop ipcstop
 sudo ./engine ps
@@ -114,7 +131,7 @@ sudo ./engine ps
 
 
 ### Screenshot
-![alt text](image-6.png)
+![alt text](image-16.png)
 
 ---
 
@@ -122,26 +139,26 @@ sudo ./engine ps
 
 ### Command
 ```bash
-cd /home/angelo/osprt2/OS-Jackfruit/boilerplate
+cd /boilerplate
 chmod +x ./demo_steps.sh
 ./demo_steps.sh soft
 ```
 
-Sections 5-8 use `./demo_steps.sh` so you can rerun each screenshot step with a single command.
+
 
 
 
 
 
 ### Screenshot
-![alt text](image-11.png)
+![alt text](image-17.png)
 ---
 
 ## 6. Hard-limit enforcement
 
 ### Command
 ```bash
-cd /home/angelo/osprt2/OS-Jackfruit/boilerplate
+cd /boilerplate
 ./demo_steps.sh hard
 ```
 
@@ -149,7 +166,7 @@ cd /home/angelo/osprt2/OS-Jackfruit/boilerplate
 
 
 ### Screenshot
-![alt text](image-10.png)
+![alt text](image-18.png)
 
 ---
 
@@ -157,7 +174,7 @@ cd /home/angelo/osprt2/OS-Jackfruit/boilerplate
 
 
 ```bash
-cd /home/angelo/osprt2/OS-Jackfruit/boilerplate
+cd /boilerplate
 ./demo_steps.sh sched
 ```
 
@@ -172,13 +189,12 @@ cd /home/angelo/osprt2/OS-Jackfruit/boilerplate
 
 ### Copy-paste Command
 ```bash
-cd /home/angelo/osprt2/OS-Jackfruit/boilerplate
+cd /boilerplate
 ./demo_steps.sh teardown
 ```
 
-### Output
-Paste terminal output here.
+
 
 ### Screenshot
-Add screenshot here.
+![alt text](image-19.png)
 

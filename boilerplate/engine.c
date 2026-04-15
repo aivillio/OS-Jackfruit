@@ -1522,11 +1522,10 @@ static int cmd_run(int argc, char *argv[])
     for (;;) {
         control_request_t ps_req;
         control_response_t ps_resp;
-        char needle[CONTAINER_ID_LEN + 2];
-        char *entry;
-        char *state_pos;
-        char *exit_pos;
-        char *sig_pos;
+        char ps_copy[CONTROL_MESSAGE_LEN];
+        char *saveptr = NULL;
+        char *line;
+        int found = 0;
         int exit_code = -1;
         int exit_sig = 0;
         char state_text[32];
@@ -1548,25 +1547,46 @@ static int cmd_run(int argc, char *argv[])
         if (send_control_request_raw(&ps_req, &ps_resp, 0) != 0)
             break;
 
-        memset(needle, 0, sizeof(needle));
-        snprintf(needle, sizeof(needle), "%s(", req.container_id);
-        entry = strstr(ps_resp.message, needle);
-        if (entry == NULL) {
-            usleep(200000);
-            continue;
+        memset(ps_copy, 0, sizeof(ps_copy));
+        strncpy(ps_copy, ps_resp.message, sizeof(ps_copy) - 1);
+
+        for (line = strtok_r(ps_copy, "\n", &saveptr);
+             line != NULL;
+             line = strtok_r(NULL, "\n", &saveptr)) {
+            char cid[CONTAINER_ID_LEN];
+            int pid = 0;
+            int nice_value = 0;
+            int parsed = 0;
+
+            while (*line == ' ' || *line == '\t')
+                line++;
+
+            if (*line == '\0' ||
+                strncmp(line, "CONTAINER", 9) == 0 ||
+                strncmp(line, "(no containers)", 15) == 0)
+                continue;
+
+            memset(cid, 0, sizeof(cid));
+            memset(state_text, 0, sizeof(state_text));
+            parsed = sscanf(line,
+                            "%31s %d %31s %d %d %d",
+                            cid,
+                            &pid,
+                            state_text,
+                            &nice_value,
+                            &exit_code,
+                            &exit_sig);
+            if (parsed < 6)
+                continue;
+
+            if (strncmp(cid, req.container_id, CONTAINER_ID_LEN) != 0)
+                continue;
+
+            found = 1;
+            break;
         }
 
-        state_pos = strstr(entry, "state=");
-        exit_pos = strstr(entry, "exit=");
-        sig_pos = strstr(entry, "sig=");
-        if (state_pos == NULL || exit_pos == NULL || sig_pos == NULL) {
-            usleep(200000);
-            continue;
-        }
-
-        if (sscanf(state_pos, "state=%31[^,]", state_text) != 1 ||
-            sscanf(exit_pos, "exit=%d", &exit_code) != 1 ||
-            sscanf(sig_pos, "sig=%d", &exit_sig) != 1) {
+        if (!found) {
             usleep(200000);
             continue;
         }
