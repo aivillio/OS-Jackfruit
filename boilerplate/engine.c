@@ -43,7 +43,7 @@
 #define CONTAINER_ID_LEN 32
 #define CONTROL_PATH "/tmp/mini_runtime.sock"
 #define LOG_DIR "logs"
-#define CONTROL_MESSAGE_LEN 256
+#define CONTROL_MESSAGE_LEN 1024
 #define CHILD_COMMAND_LEN 256
 #define LOG_CHUNK_SIZE 4096
 #define LOG_BUFFER_CAPACITY 16
@@ -77,6 +77,7 @@ typedef struct container_record {
     char termination_reason[32];
     unsigned long soft_limit_bytes;
     unsigned long hard_limit_bytes;
+    int nice_value;
     int exit_code;
     int exit_signal;
     int log_read_fd;
@@ -521,6 +522,7 @@ static int handle_start_like_request(supervisor_ctx_t *ctx,
     snprintf(rec->termination_reason, sizeof(rec->termination_reason), "%s", "running");
     rec->soft_limit_bytes = req->soft_limit_bytes;
     rec->hard_limit_bytes = req->hard_limit_bytes;
+    rec->nice_value = req->nice_value;
     rec->exit_code = -1;
     rec->exit_signal = 0;
     rec->log_read_fd = pipefd[0];
@@ -589,23 +591,31 @@ static int handle_control_request(supervisor_ctx_t *ctx,
     {
         container_record_t *cur;
         size_t off = 0;
-        int first = 1;
+        int wrote_header = 0;
 
         pthread_mutex_lock(&ctx->metadata_lock);
+
+        off += (size_t)snprintf(resp->message + off,
+                                sizeof(resp->message) - off,
+                                "%-16s %-8s %-10s %-6s %-8s %-8s %-12s\n",
+                                "CONTAINER", "PID", "STATE", "NICE", "EXIT", "SIG", "REASON");
+        wrote_header = 1;
+
         for (cur = ctx->containers; cur != NULL; cur = cur->next) {
             int n;
+            const char *reason = cur->termination_reason[0] != '\0' ?
+                                 cur->termination_reason : "unknown";
 
             n = snprintf(resp->message + off,
                          sizeof(resp->message) - off,
-                         "%s%s(pid=%d,state=%s,exit=%d,sig=%d,reason=%s,start=%ld)",
-                         first ? "" : "; ",
+                         "%-16s %-8d %-10s %-6d %-8d %-8d %-12s\n",
                          cur->id,
                          cur->host_pid,
                          state_to_string(cur->state),
+                         cur->nice_value,
                          cur->exit_code,
                          cur->exit_signal,
-                         cur->termination_reason[0] != '\0' ? cur->termination_reason : "unknown",
-                         (long)cur->started_at);
+                         reason);
             if (n < 0)
                 break;
 
@@ -615,11 +625,10 @@ static int handle_control_request(supervisor_ctx_t *ctx,
             }
 
             off += (size_t)n;
-            first = 0;
         }
 
-        if (first)
-            snprintf(resp->message, sizeof(resp->message), "no containers");
+        if (!wrote_header)
+            snprintf(resp->message, sizeof(resp->message), "CONTAINER        PID      STATE      NICE   EXIT     SIG      REASON\n(no containers)\n");
         else if (off == sizeof(resp->message) - 1 && sizeof(resp->message) > 5)
             memcpy(resp->message + sizeof(resp->message) - 5, " ...", 5);
 
