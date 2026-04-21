@@ -5,7 +5,7 @@ Lightweight Linux container runtime in C with a long-running supervisor and a ke
 ## 1. Team Information
 
 - Angelo Arakal (SRN: PES2UG24CS062)
-- Sai Adhyan Abinav (SRN: PES2UG24CS055)
+- Sai Adhyan Anubhav (SRN: PES2UG24CS055)
 
 ## 2. Build, Load, and Run Instructions
 
